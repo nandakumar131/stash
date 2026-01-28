@@ -1,0 +1,38 @@
+{
+  "name": "stash",
+  "productName": "Stash",
+  "version": "0.1.0",
+  "description": "Local snippet manager with global search",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electronmon .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.1.0"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3",
+    "electronmon": "^2.0.3",
+    "@electron/rebuild": "^3.6.0"
+  },
+  "build": {
+    "appId": "com.nanda.stash",
+    "productName": "Stash",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "target": ["dmg"],
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "title": "Stash"
+    }
+  }
+}
