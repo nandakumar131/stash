@@ -126,5 +126,39 @@ button.danger:hover {
   background: rgba(255, 80, 80, 0.12);
 }
 
+.overlay {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.45);
+}
+
+.overlay.show { display: flex; }
+
+.overlayCard {
+  width: 520px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(25,25,28,0.98);
+}
+
+.overlayTitle { font-weight: 800; margin-bottom: 10px; }
+.overlayHint { margin-top: 10px; font-size: 12px; color: var(--muted); }
+
+.varRow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.varLabel { width: 160px; color: var(--muted); font-size: 12px; }
+.varInput {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(20,20,22,0.9);
+  color: var(--text);
+  outline: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.overlayActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
 
 .footer { color: var(--muted); font-size: 12px; }

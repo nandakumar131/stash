@@ -42,6 +42,17 @@ function activateAppByBundleId(bundleId) {
   }
 }
 
+function pasteViaCommandV() {
+  if (process.platform !== "darwin") return;
+
+  // System Events keystroke Cmd+V
+  // Note: this may trigger Automation/Accessibility permission prompts.
+  execFileSync("osascript", [
+    "-e",
+    'tell application "System Events" to keystroke "v" using command down'
+  ], { encoding: "utf8" });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 720,
@@ -131,6 +142,32 @@ ipcMain.handle("clipboard:copy", (_evt, text) => {
 
   return true;
 });
+
+ipcMain.handle("clipboard:copyAndPaste", (_evt, text) => {
+  clipboard.writeText(String(text ?? ""));
+
+  // Hide Stash window
+  if (win) win.hide();
+
+  // Return focus to the previous app, then paste
+  setTimeout(() => {
+    activateAppByBundleId(lastFrontAppBundleId);
+
+    // tiny delay to let focus settle
+    setTimeout(() => {
+      try {
+        pasteViaCommandV();
+      } catch (e) {
+        console.error("Auto-paste failed:", e.message);
+        // Optional: show a user-friendly message
+        // dialog.showMessageBox({ type: "info", message: "Enable Accessibility permission to allow auto-paste." })
+      }
+    }, 80);
+  }, 50);
+
+  return true;
+});
+
 
   // Window control
   ipcMain.handle("ui:hide", () => {

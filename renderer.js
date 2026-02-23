@@ -14,6 +14,15 @@ const saveBtn = $("saveBtn");
 const cancelBtn = $("cancelBtn");
 const deleteBtn = $("deleteBtn");
 
+const varOverlay = document.getElementById("varOverlay");
+const varFields = document.getElementById("varFields");
+const varCancel = document.getElementById("varCancel");
+const varOk = document.getElementById("varOk");
+
+let pendingTemplate = null;
+let pendingPasteMode = null; // "copy" | "paste"
+let varInputs = [];
+
 let results = [];
 let selectedIndex = 0;
 let editorOpen = false;
@@ -152,6 +161,93 @@ function isTypingInTextField() {
   return tag === "input" || tag === "textarea" || el.isContentEditable;
 }
 
+function extractVariables(text) {
+  const re = /\{([a-zA-Z0-9_]+)(=([^}]*))?\}/g;
+  const vars = [];
+  const seen = new Set();
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const name = m[1];
+    const def = m[3] ?? "";
+    if (!seen.has(name)) {
+      seen.add(name);
+      vars.push({ name, def });
+    }
+  }
+  return vars;
+}
+
+function applyVariables(text, values) {
+  const re = /\{([a-zA-Z0-9_]+)(=([^}]*))?\}/g;
+  return text.replace(re, (_full, name, _eq, def) => {
+    const v = values[name];
+    if (v != null && String(v).length > 0) return String(v);
+    return def ?? "";
+  });
+}
+
+function openVarOverlay(vars, templateText, pasteMode) {
+  pendingTemplate = templateText;
+  pendingPasteMode = pasteMode;
+
+  varFields.innerHTML = "";
+  varInputs = [];
+
+  for (const v of vars) {
+    const row = document.createElement("div");
+    row.className = "varRow";
+
+    const label = document.createElement("div");
+    label.className = "varLabel";
+    label.textContent = v.name;
+
+    const input = document.createElement("input");
+    input.className = "varInput";
+    input.value = v.def || "";
+    input.setAttribute("data-var", v.name);
+
+    row.appendChild(label);
+    row.appendChild(input);
+    varFields.appendChild(row);
+    varInputs.push(input);
+  }
+
+  varOverlay.classList.add("show");
+  setTimeout(() => varInputs[0]?.focus(), 0);
+}
+
+function closeVarOverlay() {
+  varOverlay.classList.remove("show");
+  pendingTemplate = null;
+  pendingPasteMode = null;
+  searchEl.focus();
+}
+
+async function commitVarOverlay() {
+  if (!pendingTemplate) return;
+
+  const values = {};
+  for (const input of varInputs) {
+    values[input.dataset.var] = input.value;
+  }
+
+  const expanded = applyVariables(pendingTemplate, values);
+
+  // Now perform action
+  if (pendingPasteMode === "paste") {
+    await window.api.copyAndPaste(expanded);
+  } else {
+    await window.api.copy(expanded);
+    await window.api.hide();
+  }
+
+  closeVarOverlay();
+}
+
+
+varCancel.addEventListener("click", closeVarOverlay);
+varOk.addEventListener("click", commitVarOverlay);
+
 // UI events
 searchEl.addEventListener("input", refresh);
 newBtn.addEventListener("click", openEditorNew);
@@ -161,11 +257,24 @@ deleteBtn.addEventListener("click", deleteSelectedSnippet);
 
 document.addEventListener("keydown", async (e) => {
 
-    // If user is typing in an input/textarea, do NOT hijack Backspace/Delete.
-    // This fixes "can't delete in search bar".
-    if (isTypingInTextField() && (e.key === "Backspace" || e.key === "Delete")) {
-      return;
+  // If variable overlay is open, it owns Enter/Esc
+  if (varOverlay.classList.contains("show")) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeVarOverlay();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      await commitVarOverlay();
     }
+    return;
+  }
+
+
+  // If user is typing in an input/textarea, do NOT hijack Backspace/Delete.
+  // This fixes "can't delete in search bar".
+  if (isTypingInTextField() && (e.key === "Backspace" || e.key === "Delete")) {
+    return;
+  }
 
   // ESC
   if (e.key === "Escape") {
@@ -202,11 +311,30 @@ document.addEventListener("keydown", async (e) => {
   if (e.key === "ArrowDown") { e.preventDefault(); moveSelection(+1); }
   if (e.key === "ArrowUp") { e.preventDefault(); moveSelection(-1); }
 
-  // Enter copies
-  if (e.key === "Enter") {
-    e.preventDefault();
-    await copySelected();
+ if (e.key === "Enter") {
+  e.preventDefault();
+
+  const picked = getSelected();
+  if (!picked) return;
+
+  const body = picked.body || "";
+  const mode = e.metaKey ? "paste" : "copy"; // ⌘Enter paste, Enter copy
+
+  const vars = extractVariables(body);
+  if (vars.length > 0) {
+    openVarOverlay(vars, body, mode);
+    return;
   }
+
+  // No vars => existing behavior
+  if (mode === "paste") {
+    await window.api.copyAndPaste(body);
+  } else {
+    await window.api.copy(body);
+    await window.api.hide();
+  }
+}
+
 
   // Cmd/Ctrl+N new snippet
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
