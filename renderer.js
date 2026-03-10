@@ -325,7 +325,6 @@ document.addEventListener("keydown", async (e) => {
     }
   }
 
-
   // If user is typing in an input/textarea, do NOT hijack Backspace/Delete.
   // This fixes "can't delete in search bar".
   if (isTypingInTextField() && (e.key === "Backspace" || e.key === "Delete")) {
@@ -366,6 +365,20 @@ document.addEventListener("keydown", async (e) => {
   // List navigation
   if (e.key === "ArrowDown") { e.preventDefault(); moveSelection(+1); }
   if (e.key === "ArrowUp") { e.preventDefault(); moveSelection(-1); }
+
+  // Ctrl+j → next
+  if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "j") {
+    e.preventDefault();
+    moveSelection(+1);
+    return;
+  }
+
+  // Ctrl+l → previous
+  if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "l") {
+    e.preventDefault();
+    moveSelection(-1);
+    return;
+  }
 
  if (e.key === "Enter") {
   e.preventDefault();
