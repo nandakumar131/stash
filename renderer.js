@@ -18,6 +18,7 @@ const varOverlay = document.getElementById("varOverlay");
 const varFields = document.getElementById("varFields");
 const varCancel = document.getElementById("varCancel");
 const varOk = document.getElementById("varOk");
+const prefsBtn = document.getElementById("prefsBtn");
 
 let pendingTemplate = null;
 let pendingPasteMode = null; // "copy" | "paste"
@@ -26,7 +27,20 @@ let varInputs = [];
 let results = [];
 let selectedIndex = 0;
 let editorOpen = false;
-let editingId = null; // null => creating new
+let editingId = null;
+
+const modeBadge = document.getElementById("modeBadge");
+
+// searchMode: "snippets" | "clipboard"
+let searchMode = "snippets";
+
+function setSearchMode(mode) {
+  searchMode = mode === "clipboard" ? "clipboard" : "snippets";
+  modeBadge.textContent = searchMode === "clipboard" ? "Clipboard" : "Snippets";
+  searchEl.placeholder = searchMode === "clipboard" ? "Search clipboard…" : "Search snippets…";
+  // refresh results for the current query in the new mode
+  refresh();
+}
 
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -45,7 +59,8 @@ function renderList() {
       <div class="${cls}" data-idx="${idx}">
         <div class="title">${escapeHtml(r.title || "(Untitled)")}</div>
         <div class="body">${escapeHtml(r.body || "")}</div>
-        ${r.tags ? `<div class="tags">${escapeHtml(r.tags)}</div>` : ""}
+        ${r.isClipboard ? `<div class="tags">clipboard • ${new Date(r.createdAt).toLocaleString()}</div>` : 
+          (r.tags ? `<div class="tags">${escapeHtml(r.tags)}</div>` : "")}
       </div>
     `;
   }).join("");
@@ -63,6 +78,38 @@ function renderList() {
 }
 
 async function refresh() {
+  const raw = (searchEl.value || "").trim();
+
+  if (searchMode === "clipboard") {
+    // clipboard mode: if empty, list recent; otherwise search
+    if (!raw) {
+      const items = await window.api.clipboardHistoryList(200);
+      results = items.map(it => ({
+        id: it.id,
+        title: it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text,
+        body: it.text,
+        tags: "",
+        createdAt: it.createdAt,
+        isClipboard: true
+      }));
+    } else {
+      const items = await window.api.clipboardHistorySearch(raw, 200);
+      results = items.map(it => ({
+        id: it.id,
+        title: it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text,
+        body: it.text,
+        tags: "",
+        createdAt: it.createdAt,
+        isClipboard: true
+      }));
+    }
+
+    selectedIndex = Math.min(selectedIndex, Math.max(results.length - 1, 0));
+    renderList();
+    return;
+  }
+
+  // default: snippets mode 
   results = await window.api.search(searchEl.value);
   selectedIndex = Math.min(selectedIndex, Math.max(results.length - 1, 0));
   renderList();
@@ -254,6 +301,7 @@ newBtn.addEventListener("click", openEditorNew);
 saveBtn.addEventListener("click", saveSnippet);
 cancelBtn.addEventListener("click", closeEditor);
 deleteBtn.addEventListener("click", deleteSelectedSnippet);
+prefsBtn.addEventListener("click", () => window.api.openPrefs());
 
 document.addEventListener("keydown", async (e) => {
 
@@ -267,6 +315,20 @@ document.addEventListener("keydown", async (e) => {
       await commitVarOverlay();
     }
     return;
+  }
+
+  // If variable overlay is open, let it handle Tab normally
+  if (varOverlay && varOverlay.classList.contains("show")) {
+    // let overlay handle tab to move between inputs
+    // (your overlay key handler already handles Enter/Escape)
+  } else {
+    // Toggle search mode when Tab (or Shift+Tab) pressed while search input is focused.
+    if (e.key === "Tab" && document.activeElement === searchEl) {
+      e.preventDefault();
+      const next = e.shiftKey ? "snippets" : (searchMode === "snippets" ? "clipboard" : "snippets");
+      setSearchMode(next);
+      return;
+    }
   }
 
 
@@ -320,13 +382,14 @@ document.addEventListener("keydown", async (e) => {
   const body = picked.body || "";
   const mode = e.metaKey ? "paste" : "copy"; // ⌘Enter paste, Enter copy
 
-  const vars = extractVariables(body);
-  if (vars.length > 0) {
-    openVarOverlay(vars, body, mode);
-    return;
+  if (!picked.isClipboard) {
+    const vars = extractVariables(body);
+    if (vars.length > 0) {
+      openVarOverlay(vars, body, mode);
+      return;
+    }
   }
 
-  // No vars => existing behavior
   if (mode === "paste") {
     await window.api.copyAndPaste(body);
   } else {
@@ -359,6 +422,11 @@ document.addEventListener("keydown", async (e) => {
     }
   }
 
+  if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+    e.preventDefault();
+    window.api.openPrefs();
+  }
+
   // Cmd/Ctrl+Q quit (recommended since Dock hidden)
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "q") {
     e.preventDefault();
@@ -369,6 +437,7 @@ document.addEventListener("keydown", async (e) => {
 window.api.onFocusSearch(() => {
   searchEl.focus();
   searchEl.select();
+  refresh();
 });
 
 // If you implemented tray menu "open-editor" earlier, keep this:
@@ -382,4 +451,5 @@ if (window.api.onOpenEditor) {
   selectedIndex = 0;
   renderList();
   searchEl.focus();
+  setSearchMode("snippets");
 })();

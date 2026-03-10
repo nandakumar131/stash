@@ -10,5 +10,11 @@ contextBridge.exposeInMainWorld("api", {
   copyAndPaste: (text) => ipcRenderer.invoke("clipboard:copyAndPaste", text),
   hide: () => ipcRenderer.invoke("ui:hide"),
   onFocusSearch: (cb) => ipcRenderer.on("focus-search", cb),
-  quit: () => ipcRenderer.invoke("app:quit")
+  quit: () => ipcRenderer.invoke("app:quit"),
+  getSettings: () => ipcRenderer.invoke("settings:get"),
+  setSettings: (next) => ipcRenderer.invoke("settings:set", next),
+  openPrefs: () => ipcRenderer.invoke("prefs:open"),
+  closePrefs: () => ipcRenderer.invoke("prefs:close"),
+  clipboardHistoryList: (limit) => ipcRenderer.invoke("clipboardHistory:list", limit),
+  clipboardHistorySearch: (q, limit) => ipcRenderer.invoke("clipboardHistory:search", q, limit)
 });
