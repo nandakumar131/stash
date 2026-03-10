@@ -4,12 +4,19 @@ const isMac = process.platform === "darwin";
 const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } = require("electron");
 const path = require("path");
 const { openDb, makeRepo } = require("./db");
+const { loadSettings, saveSettings } = require("./settings");
 const iconPath = path.join(__dirname, "assets", "icon.icns");
 
 let win;
 let repo;
+let settings = null;
+let prefsWin = null;
 
 let lastFrontAppBundleId = null;
+
+let clipTimer = null;
+let lastObservedClipboard = null; // last text read from system clipboard
+let lastWrittenByStash = null;   // track text we wrote so we don't re-capture it
 
 function getFrontmostAppBundleId() {
   if (process.platform !== "darwin") return null;
@@ -104,6 +111,70 @@ function toggleWindow() {
   }
 }
 
+function openPreferences() {
+  if (prefsWin && !prefsWin.isDestroyed()) {
+    prefsWin.show();
+    prefsWin.focus();
+    return;
+  }
+  prefsWin = new BrowserWindow({
+    width: 520,
+    height: 320,
+    resizable: false,
+    title: "Preferences",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  prefsWin.loadFile("prefs.html");
+  prefsWin.on("closed", () => { prefsWin = null; });
+}
+
+function registerHotkey(accelerator) {
+  globalShortcut.unregisterAll();
+  const ok = globalShortcut.register(accelerator, toggleWindow);
+  return ok ? { ok: true } : { ok: false, error: `Could not register: ${accelerator}` };
+}
+
+function startClipboardWatcher() {
+  if (clipTimer) return;
+  lastObservedClipboard = null;
+
+  clipTimer = setInterval(() => {
+    try {
+      const t = clipboard.readText();
+      if (!t) return;
+
+      // If it's exactly what we just wrote from Stash,
+      // consume it once, mark observed and ignore it.
+      if (lastWrittenByStash && t === lastWrittenByStash) {
+        lastObservedClipboard = t;
+        lastWrittenByStash = null;
+        return;
+      }
+
+      // Ignore if same as last observed clipboard content
+      if (t === lastObservedClipboard) return;
+
+      lastObservedClipboard = t;
+
+      if (repo && settings?.clipboardHistoryEnabled) {
+        const maxItems = settings.clipboardMaxItems || 200;
+        repo.addClipboard(t, maxItems);
+      }
+    } catch (e) {
+      console.error("Clipboard watch error:", e.message);
+    }
+  }, 800);
+}
+
+function stopClipboardWatcher() {
+  if (!clipTimer) return;
+  clearInterval(clipTimer);
+  clipTimer = null;
+}
 
 app.whenReady().then(() => {
   if (isMac && app.dock) {
@@ -114,6 +185,7 @@ app.whenReady().then(() => {
   repo = makeRepo(db);
 
   createWindow();
+  settings = loadSettings();
 
   // Global shortcut Option+Space
   const ok = globalShortcut.register("Alt+Space", toggleWindow);
@@ -129,44 +201,58 @@ app.whenReady().then(() => {
   ipcMain.handle("snippets:delete", (_evt, id) => repo.delete(id));
 
   // Clipboard
-ipcMain.handle("clipboard:copy", (_evt, text) => {
-  clipboard.writeText(String(text ?? ""));
+  ipcMain.handle("clipboard:copy", (_evt, text) => {
+    const t = String(text ?? "");
+    clipboard.writeText(t);
+    lastWrittenByStash = t;
 
-  // Hide our window first
-  if (win) win.hide();
+    // optionally also add to clipboard history immediately if enabled
+    if (repo && settings?.clipboardHistoryEnabled) {
+      const maxItems = settings.clipboardMaxItems || 200;
+      repo.addClipboard(t, maxItems);
+    }
 
-  // Then return focus to the previous app (tiny delay avoids race)
-  setTimeout(() => {
-    activateAppByBundleId(lastFrontAppBundleId);
-  }, 50);
+    // Hide our window first
+    if (win) win.hide();
 
-  return true;
-});
+    // Then return focus to the previous app (tiny delay avoids race)
+    setTimeout(() => activateAppByBundleId(lastFrontAppBundleId), 50);
 
-ipcMain.handle("clipboard:copyAndPaste", (_evt, text) => {
-  clipboard.writeText(String(text ?? ""));
+    return true;
+  });
 
-  // Hide Stash window
-  if (win) win.hide();
+  ipcMain.handle("clipboard:copyAndPaste", (_evt, text) => {
+    const t = String(text ?? "");
+    clipboard.writeText(t);
+    lastWrittenByStash = t;
 
-  // Return focus to the previous app, then paste
-  setTimeout(() => {
-    activateAppByBundleId(lastFrontAppBundleId);
+    // optionally also add to clipboard history immediately if enabled
+    if (repo && settings?.clipboardHistoryEnabled) {
+      const maxItems = settings.clipboardMaxItems || 200;
+      repo.addClipboard(t, maxItems);
+    }
 
-    // tiny delay to let focus settle
+    // Hide Stash window
+    if (win) win.hide();
+
+    // Return focus to the previous app, then paste
     setTimeout(() => {
-      try {
-        pasteViaCommandV();
-      } catch (e) {
-        console.error("Auto-paste failed:", e.message);
-        // Optional: show a user-friendly message
-        // dialog.showMessageBox({ type: "info", message: "Enable Accessibility permission to allow auto-paste." })
-      }
-    }, 80);
-  }, 50);
+      activateAppByBundleId(lastFrontAppBundleId);
 
-  return true;
-});
+      // tiny delay to let focus settle
+      setTimeout(() => {
+        try {
+          pasteViaCommandV();
+        } catch (e) {
+          console.error("Auto-paste failed:", e.message);
+          // Optional: show a user-friendly message
+          // dialog.showMessageBox({ type: "info", message: "Enable Accessibility permission to allow auto-paste." })
+        }
+      }, 80);
+    }, 50);
+
+    return true;
+  });
 
 
   // Window control
@@ -184,6 +270,40 @@ ipcMain.handle("clipboard:copyAndPaste", (_evt, text) => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  if (process.platform === "darwin" && app.dock) app.dock.hide();
+  if (settings.clipboardHistoryEnabled) startClipboardWatcher();
+
+  const r = registerHotkey(settings.hotkey || "Alt+Space");
+  if (!r.ok) console.error(r.error);
+
+  ipcMain.handle("prefs:open", () => { openPreferences(); return true; });
+  ipcMain.handle("prefs:close", () => { if (prefsWin) prefsWin.close(); return true; });
+
+  ipcMain.handle("settings:get", () => settings);
+
+  ipcMain.handle("settings:set", (_evt, next) => {
+    settings = { ...settings, ...(next || {}) };
+    saveSettings(settings);
+    if (settings.clipboardHistoryEnabled) 
+      startClipboardWatcher();
+    else
+      stopClipboardWatcher();
+
+    const res = registerHotkey(settings.hotkey || "Alt+Space");
+    return res;
+  });
+
+  ipcMain.handle("clipboardHistory:list", (_evt, limit = 100) => {
+    if (!repo) return [];
+    return repo.listClipboard(limit);
+  });
+
+  ipcMain.handle("clipboardHistory:search", (_evt, q, limit = 100) => {
+    if (!repo) return [];
+    return repo.searchClipboard(q, limit);
+  });
+
 });
 
 app.on("window-all-closed", (e) => {

@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preferences</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="prefs">
+      <h2>Stash Preferences</h2>
+
+      <div class="prefRow">
+        <div class="prefText">
+          <div class="prefTitle">Global hotkey</div>
+          <div class="prefDesc">Example: <code>Alt+Space</code>, <code>Command+Shift+Space</code></div>
+        </div>
+        <input id="hotkey" class="prefInput" />
+      </div>
+
+      <div class="prefRow">
+        <div class="prefText">
+          <div class="prefTitle">Clipboard history</div>
+          <div class="prefDesc">When enabled, Stash can search recent clipboard entries (opt-in).</div>
+        </div>
+        <label class="switch">
+          <input id="clipboardHistoryEnabled" type="checkbox" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="prefActions">
+        <button id="closeBtn">Close</button>
+        <button id="saveBtn">Save</button>
+      </div>
+
+      <div class="prefHint" id="hint"></div>
+    </div>
+
+    <script src="./prefs.js"></script>
+  </body>
+</html>
