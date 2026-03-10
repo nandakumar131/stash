@@ -304,6 +304,63 @@ app.whenReady().then(() => {
     return repo.searchClipboard(q, limit);
   });
 
+  // Plain tokenized keyword search for snippets
+  ipcMain.handle("search:plain:snippets", (_evt, q = "", limit = 50) => {
+    try {
+      const raw = (q || "").trim();
+      if (!raw) return repo.recent(limit);
+
+      const tokens = raw
+        .toLowerCase()
+        .split(/\s+/)
+        .map(t => t.trim())
+        .filter(Boolean);
+
+      const candidates = repo.recent(2000); // tune limit if you expect >2k snippets
+
+      const results = candidates.filter(it => {
+        const hay = `${it.title || ""} ${it.body || ""} ${it.tags || ""}`.toLowerCase();
+        return tokens.every(tok => hay.includes(tok));
+      });
+
+      // Sort by updatedAt desc (recent first), then return top `limit`
+      results.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      return results.slice(0, limit);
+    } catch (e) {
+      console.error("search:plain:snippets error:", e);
+      return [];
+    }
+  });
+
+  // Plain tokenized keyword search for clipboard
+  ipcMain.handle("search:plain:clipboard", (_evt, q = "", limit = 100) => {
+    try {
+      const raw = (q || "").trim();
+      if (!raw) return repo.listClipboard(limit);
+
+      const tokens = raw
+        .toLowerCase()
+        .split(/\s+/)
+        .map(t => t.trim())
+        .filter(Boolean);
+
+      // Fetch recent clipboard items to search from (cap)
+      const candidates = repo.listClipboard(2000);
+
+      const results = candidates.filter(it => {
+        const hay = (it.text || "").toLowerCase();
+        return tokens.every(tok => hay.includes(tok));
+      });
+
+      // sort by createdAt desc (most recent first)
+      results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return results.slice(0, limit);
+    } catch (e) {
+      console.error("search:plain:clipboard error:", e);
+      return [];
+    }
+  });
+
 });
 
 app.on("window-all-closed", (e) => {

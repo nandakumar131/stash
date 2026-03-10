@@ -81,36 +81,30 @@ async function refresh() {
   const raw = (searchEl.value || "").trim();
 
   if (searchMode === "clipboard") {
-    // clipboard mode: if empty, list recent; otherwise search
-    if (!raw) {
-      const items = await window.api.clipboardHistoryList(200);
-      results = items.map(it => ({
-        id: it.id,
-        title: it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text,
-        body: it.text,
-        tags: "",
-        createdAt: it.createdAt,
-        isClipboard: true
-      }));
-    } else {
-      const items = await window.api.clipboardHistorySearch(raw, 200);
-      results = items.map(it => ({
-        id: it.id,
-        title: it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text,
-        body: it.text,
-        tags: "",
-        createdAt: it.createdAt,
-        isClipboard: true
-      }));
-    }
-
+    const items = await window.api.searchPlainClipboard(raw || "", 200);
+    results = (items || []).map(it => ({
+      id: it.id,
+      title: it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text,
+      body: it.text,
+      isClipboard: true,
+      createdAt: it.createdAt
+    }));
     selectedIndex = Math.min(selectedIndex, Math.max(results.length - 1, 0));
     renderList();
     return;
   }
 
-  // default: snippets mode 
-  results = await window.api.search(searchEl.value);
+  // snippets mode
+  const items = await window.api.searchPlainSnippets(raw || "", 200);
+  results = (items || []).map(it => ({
+    id: it.id,
+    title: it.title || "(Untitled)",
+    body: it.body || "",
+    tags: it.tags || "",
+    createdAt: it.createdAt,
+    updatedAt: it.updatedAt,
+    isClipboard: false
+  }));
   selectedIndex = Math.min(selectedIndex, Math.max(results.length - 1, 0));
   renderList();
 }
