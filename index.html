@@ -11,7 +11,10 @@
     <div class="container">
       <div class="topbar" id="drag-region">
         <input id="search" placeholder="Search snippets…" autocomplete="off" />
-        <div id="modeBadge" class="modeBadge">Snippets</div>
+        <div class="modeToggle" id="modeToggle">
+          <div class="modeItem active" data-mode="snippets">🧩 </div>
+          <div class="modeItem" data-mode="clipboard">📋 </div>
+        </div>
         <button id="newBtn" title="New snippet">+</button>
         <button id="prefsBtn" title="Preferences">⚙︎</button>
       </div>

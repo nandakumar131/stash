@@ -29,16 +29,30 @@ let selectedIndex = 0;
 let editorOpen = false;
 let editingId = null;
 
-const modeBadge = document.getElementById("modeBadge");
-
-// searchMode: "snippets" | "clipboard"
-let searchMode = "snippets";
+const modeToggle = document.getElementById("modeToggle");
+const modeItems = Array.from(document.querySelectorAll(".modeItem"));
 
 function setSearchMode(mode) {
   searchMode = mode === "clipboard" ? "clipboard" : "snippets";
-  modeBadge.textContent = searchMode === "clipboard" ? "Clipboard" : "Snippets";
-  searchEl.placeholder = searchMode === "clipboard" ? "Search clipboard…" : "Search snippets…";
-  // refresh results for the current query in the new mode
+
+  for (const el of modeItems) {
+    el.classList.toggle("active", el.dataset.mode === searchMode);
+  }
+  
+  // Update UI
+  document.querySelectorAll(".modeItem").forEach(el => {
+    el.addEventListener("click", () => {
+      setSearchMode(el.dataset.mode);
+      searchEl.focus();
+    });
+  });
+
+  // Update placeholder
+  searchEl.placeholder =
+    searchMode === "clipboard"
+      ? "Search clipboard..."
+      : "Search snippets...";
+
   refresh();
 }
 
@@ -57,10 +71,10 @@ function renderList() {
     const cls = idx === selectedIndex ? "item selected" : "item";
     return `
       <div class="${cls}" data-idx="${idx}">
-        <div class="title">${escapeHtml(r.title || "(Untitled)")}</div>
-        <div class="body">${escapeHtml(r.body || "")}</div>
+        <div class="title">${highlightText(r.title|| "(Untitled)", searchEl.value)}</div>
+        <div class="body">${highlightText(r.body || "", searchEl.value)}</div>
         ${r.isClipboard ? `<div class="tags">clipboard • ${new Date(r.createdAt).toLocaleString()}</div>` : 
-          (r.tags ? `<div class="tags">${escapeHtml(r.tags)}</div>` : "")}
+          (r.tags ? `<div class="tags">${highlightText(r.tags, searchEl.value)}</div>` : "")}
       </div>
     `;
   }).join("");
@@ -191,7 +205,10 @@ function moveSelection(delta) {
   selectedIndex = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
   renderList();
   const sel = listEl.querySelector(".item.selected");
-  if (sel) sel.scrollIntoView({ block: "nearest" });
+  if (sel) sel.scrollIntoView({ 
+    block: "center",
+    behavior: "smooth"
+   });
 }
 
 
@@ -285,6 +302,24 @@ async function commitVarOverlay() {
   closeVarOverlay();
 }
 
+function highlightText(text, query) {
+  if (!query) return escapeHtml(text);
+
+  const tokens = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  let result = escapeHtml(text);
+
+  for (const token of tokens) {
+    const re = new RegExp(`(${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    result = result.replace(re, '<span class="highlight">$1</span>');
+  }
+
+  return result;
+}
+
 
 varCancel.addEventListener("click", closeVarOverlay);
 varOk.addEventListener("click", commitVarOverlay);
@@ -318,10 +353,9 @@ document.addEventListener("keydown", async (e) => {
   } else {
     // Toggle search mode when Tab (or Shift+Tab) pressed while search input is focused.
     if (e.key === "Tab" && document.activeElement === searchEl) {
-      e.preventDefault();
-      const next = e.shiftKey ? "snippets" : (searchMode === "snippets" ? "clipboard" : "snippets");
-      setSearchMode(next);
-      return;
+     e.preventDefault();
+     setSearchMode(searchMode === "snippets" ? "clipboard" : "snippets");
+     return;
     }
   }
 

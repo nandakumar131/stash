@@ -19,8 +19,8 @@ Stash is a lightweight, global hotkey-powered productivity tool built for develo
 - Open anywhere with a global hotkey (default: Alt + Space)
 - Dock-hidden, distraction-free workflow
 - Fast Spotlight-style popup window
----
 
+---
 ### 🧩 Snippet Variables (Templates)
 
 Create dynamic snippets like:
@@ -30,16 +30,16 @@ kubectl logs {pod} -n {namespace=default}
 ```
 
 On execution, Stash prompts you to fill in variables before copying or pasting.
----
 
+---
 ### 📋 Clipboard History (Optional)
 
 - Track recent clipboard entries
 - Token-based keyword search
 - De-duplicated history
 - Switch between snippets and clipboard using `Tab`
----
 
+---
 ### 🔍 Simple Keyword Search
 
 - Deterministic tokenized search (AND logic)
@@ -72,8 +72,8 @@ Open Preferences via:
 | `Cmd + Delete` | Delete snippet              |
 | `Esc`          | Close                       |
 | `Cmd + Q`      | Quit                        |
----
 
+---
 ### 🧠 Philosophy
 
 - Stash is designed to:
@@ -82,8 +82,8 @@ Open Preferences via:
 - Avoid unnecessary complexity
 - Be easy to debug and maintain
 - Prioritize developer workflows
----
 
+---
 ### 🛠 Tech Stack
 
 - Electron
@@ -91,6 +91,7 @@ Open Preferences via:
 - Plain keyword search
 - macOS-native clipboard + Accessibility integration
 
+---
 ### 📦 Installation
 #### Development
 
@@ -121,15 +122,15 @@ Stash stores data locally at:
 
 - snippets.sqlite
 - settings.json
----
 
+---
 ### 🔐 Permissions
 
 For auto-paste functionality:
 - Go to System Settings → Privacy & Security → Accessibility
 - Enable Stash
----
 
+---
 ### 🗺 Roadmap Ideas
 - Usage-based ranking
 - Snippet aliases
@@ -145,8 +146,8 @@ For auto-paste functionality:
 - Clipboard monitoring uses interval polling (no system hook)
 - macOS only
 - No cross-device sync (yet)
----
 
+---
 ### 🤝 Contributing
 
 PRs and ideas are welcome.<br>
@@ -154,12 +155,12 @@ Open an issue if you:
 - Find a bug
 - Want to propose a feature
 - Have UX improvement suggestions
----
 
+---
 ### 📜 License
 Apache License 2.0
----
 
+---
 ### 💡 Why Stash?
 
 Because your brain shouldn't have to remember:
@@ -169,3 +170,5 @@ Because your brain shouldn't have to remember:
 - Or the curl command you copied 10 minutes ago
 
 Stash remembers it so you don’t have to.
+
+---
