@@ -10,6 +10,7 @@ const bodyEl = $("body");
 const tagsEl = $("tags");
 
 const newBtn = $("newBtn");
+const clearClipboardBtn = $("clearClipboardBtn");
 const saveBtn = $("saveBtn");
 const cancelBtn = $("cancelBtn");
 const deleteBtn = $("deleteBtn");
@@ -31,6 +32,7 @@ let editingId = null;
 
 const modeToggle = document.getElementById("modeToggle");
 const modeItems = Array.from(document.querySelectorAll(".modeItem"));
+const indicator = document.getElementById("modeIndicator");
 
 function setSearchMode(mode) {
   searchMode = mode === "clipboard" ? "clipboard" : "snippets";
@@ -46,6 +48,13 @@ function setSearchMode(mode) {
       searchEl.focus();
     });
   });
+
+  if (indicator) {
+    indicator.style.left = searchMode === "clipboard" ? "calc(50% + 0px)" : "4px";
+  }
+
+  newBtn.hidden = (searchMode === "clipboard");
+  clearClipboardBtn.hidden = (searchMode !== "clipboard");
 
   // Update placeholder
   searchEl.placeholder =
@@ -331,6 +340,13 @@ saveBtn.addEventListener("click", saveSnippet);
 cancelBtn.addEventListener("click", closeEditor);
 deleteBtn.addEventListener("click", deleteSelectedSnippet);
 prefsBtn.addEventListener("click", () => window.api.openPrefs());
+clearClipboardBtn.addEventListener("click", async () => {
+  const ok = confirm("Clear all clipboard history?");
+  if (!ok) return;
+
+  await window.api.clearClipboardHistory();
+  refresh();
+});
 
 document.addEventListener("keydown", async (e) => {
 

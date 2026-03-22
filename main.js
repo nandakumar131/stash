@@ -17,6 +17,7 @@ let lastFrontAppBundleId = null;
 let clipTimer = null;
 let lastObservedClipboard = null; // last text read from system clipboard
 let lastWrittenByStash = null;   // track text we wrote so we don't re-capture it
+let lastClipboardCheck = 0;
 
 function getFrontmostAppBundleId() {
   if (process.platform !== "darwin") return null;
@@ -144,6 +145,12 @@ function startClipboardWatcher() {
 
   clipTimer = setInterval(() => {
     try {
+      const now = Date.now();
+      // Skip if too soon after last check
+      if (now - lastClipboardCheck < 1000) return;
+
+      lastClipboardCheck = now;
+
       const t = clipboard.readText();
       if (!t) return;
 
@@ -167,7 +174,7 @@ function startClipboardWatcher() {
     } catch (e) {
       console.error("Clipboard watch error:", e.message);
     }
-  }, 800);
+  }, 2000);
 }
 
 function stopClipboardWatcher() {
@@ -359,6 +366,13 @@ app.whenReady().then(() => {
       console.error("search:plain:clipboard error:", e);
       return [];
     }
+  });
+
+  ipcMain.handle("clipboard:clear", () => {
+    if (repo) {
+      repo.clearClipboard();
+    }
+    return true;
   });
 
 });

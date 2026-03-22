@@ -198,21 +198,26 @@ addClipboard(text, maxItems = 200) {
   return true;
 },
 
-    /**
-     * List recent clipboard items (most recent first)
-     */
-    listClipboard(limit = 100) {
-      return listClipStmt.all(limit);
-    },
+/**
+ * List recent clipboard items (most recent first)
+ */
+listClipboard(limit = 100) {
+  return listClipStmt.all(limit);
+},
 
-    /**
-     * Search clipboard items by text (case-insensitive)
-     */
-    searchClipboard(q, limit = 100) {
-      const p = `%${(q || "").trim().toLowerCase()}%`;
-      return searchClipStmt.all({ p, limit });
-    }
-  };
+/**
+ * Search clipboard items by text (case-insensitive)
+ */
+searchClipboard(q, limit = 100) {
+  const p = `%${(q || "").trim().toLowerCase()}%`;
+  return searchClipStmt.all({ p, limit });
+},
+
+clearClipboard() {
+  db.prepare(`DELETE FROM clipboard_items`).run();
+}
+  
+};
 }
 
 module.exports = { openDb, makeRepo };

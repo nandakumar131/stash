@@ -18,5 +18,6 @@ contextBridge.exposeInMainWorld("api", {
   clipboardHistoryList: (limit) => ipcRenderer.invoke("clipboardHistory:list", limit),
   clipboardHistorySearch: (q, limit) => ipcRenderer.invoke("clipboardHistory:search", q, limit),
   searchPlainSnippets: (q, limit = 50) => ipcRenderer.invoke("search:plain:snippets", q, limit),
-  searchPlainClipboard: (q, limit = 100) => ipcRenderer.invoke("search:plain:clipboard", q, limit)
+  searchPlainClipboard: (q, limit = 100) => ipcRenderer.invoke("search:plain:clipboard", q, limit),
+  clearClipboardHistory: () => ipcRenderer.invoke("clipboard:clear")
 });
